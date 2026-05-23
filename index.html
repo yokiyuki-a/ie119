@@ -628,9 +628,10 @@
   <div class="auth-box">
     <h2>ACCESS REQUIRED</h2>
     <div class="url-hint">
-      URLにパスワードを含めてアクセス可能：<br>
-      <code>index.html?pw=パスワード</code><br>
-      編集権限: <code>index.html?pw=パスワード&edit=1</code>
+      URLにパスワードとトークンを含めてアクセス：<br>
+      閲覧: <code>?pw=パスワード&amp;token=トークン</code><br>
+      編集: <code>?pw=パスワード&amp;token=トークン&amp;edit=1</code><br>
+      <span style="color:#666;">※一度アクセスするとトークンはブラウザに保存されます</span>
     </div>
     <div class="input-group">
       <label>パスワード</label>
@@ -786,23 +787,35 @@ let appState = {
   data: { devices: [] }
 };
 
-const STORAGE_KEY = 'ie119_data';
-const PW_KEY = 'ie119_pw';
+// ─────────────────────────────────────────
+// GIST CONFIG
+// ─────────────────────────────────────────
+const GIST_ID   = '3ca3f94444331a446f09f3cf23e31e4f';
+const GIST_FILE = 'ie119_data.json';
+const PW_KEY    = 'ie119_pw';
+let   GIST_TOKEN = '';  // URLの ?token= から取得
 
 // ─────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────
 window.addEventListener('load', () => {
-  const params = new URLSearchParams(location.search);
-  const urlPw = params.get('pw');
+  const params  = new URLSearchParams(location.search);
+  const urlPw   = params.get('pw');
   const urlEdit = params.get('edit') === '1';
+  const urlTok  = params.get('token');
 
-  loadData();
+  // トークンはURLから取得。なければlocalStorageのキャッシュを使う
+  if (urlTok) {
+    GIST_TOKEN = urlTok;
+    localStorage.setItem('ie119_token', urlTok);
+  } else {
+    GIST_TOKEN = localStorage.getItem('ie119_token') || '';
+  }
 
   if (urlPw) {
-    const stored = localStorage.getItem(PW_KEY) || getDefaultPw();
+    const stored = getStoredPw();
     if (urlPw === stored) {
-      login(urlEdit);
+      startLogin(urlEdit);
     } else {
       showScreen('auth-screen');
       document.getElementById('auth-error').textContent = 'URLのパスワードが正しくありません';
@@ -812,8 +825,7 @@ window.addEventListener('load', () => {
   }
 });
 
-function getDefaultPw() {
-  // デフォルトパスワードが未設定の場合の初期値
+function getStoredPw() {
   return localStorage.getItem(PW_KEY) || '1234';
 }
 
@@ -822,10 +834,8 @@ function getDefaultPw() {
 // ─────────────────────────────────────────
 function authLogin() {
   const pw = document.getElementById('pw-input').value;
-  const stored = getDefaultPw();
-  if (pw === stored) {
-    // 編集モードはデフォルトでオン（フォームからのログインは編集可）
-    login(true);
+  if (pw === getStoredPw()) {
+    startLogin(true);
   } else {
     document.getElementById('auth-error').textContent = 'パスワードが正しくありません';
     document.getElementById('pw-input').value = '';
@@ -836,13 +846,21 @@ document.getElementById('pw-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') authLogin();
 });
 
-function login(canEdit) {
-  appState.authed = true;
+async function startLogin(canEdit) {
+  if (!GIST_TOKEN) {
+    document.getElementById('auth-error').textContent = 'URLに &token=トークン を追加してください';
+    showScreen('auth-screen');
+    return;
+  }
   appState.canEdit = canEdit;
   showScreen('main-screen');
   setupMainUI();
+  showView('view-list');
+  document.getElementById('device-grid').innerHTML =
+    '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⏳</div><p>データを読み込み中...</p></div>';
+  await loadData();
+  appState.authed = true;
   renderDeviceGrid();
-  showList();
 }
 
 function logout() {
@@ -854,20 +872,57 @@ function logout() {
 }
 
 // ─────────────────────────────────────────
-// DATA
+// DATA — GitHub Gist
 // ─────────────────────────────────────────
-function loadData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try { appState.data = JSON.parse(raw); } catch(e) {}
+async function loadData() {
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: {
+        'Authorization': `token ${GIST_TOKEN}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gist = await res.json();
+    const raw  = gist.files[GIST_FILE]?.content;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.devices) {
+        appState.data = parsed;
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('Gist load failed, using default data:', e);
+    showToast('データ読み込み失敗。サンプルデータを表示します', 'error');
   }
-  if (!appState.data.devices || !appState.data.devices.length) {
-    appState.data = getDefaultData();
-  }
+  appState.data = getDefaultData();
 }
 
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
+async function saveData() {
+  try {
+    const body = {
+      files: {
+        [GIST_FILE]: {
+          content: JSON.stringify(appState.data, null, 2)
+        }
+      }
+    };
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${GIST_TOKEN}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch(e) {
+    console.error('Gist save failed:', e);
+    showToast('保存に失敗しました。ネットワークを確認してください', 'error');
+    throw e;
+  }
 }
 
 function getDefaultData() {
@@ -1213,7 +1268,7 @@ function renderEditView() {
   content.innerHTML = html;
 }
 
-function saveAll() {
+async function saveAll() {
   appState.data.devices.forEach(d => {
     const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
     d.icon = getVal(`e-icon-${d.id}`) || d.icon;
@@ -1231,12 +1286,15 @@ function saveAll() {
     });
   });
 
-  saveData();
-  showToast('保存しました', 'success');
-  showList();
+  showToast('保存中...', '');
+  try {
+    await saveData();
+    showToast('保存しました ✓', 'success');
+    showList();
+  } catch(e) { /* saveData already shows error toast */ }
 }
 
-function changePassword() {
+async function changePassword() {
   const newPw = document.getElementById('edit-new-pw').value.trim();
   if (!newPw) { showToast('パスワードを入力してください', 'error'); return; }
   if (newPw.length < 4) { showToast('4文字以上にしてください', 'error'); return; }
@@ -1257,7 +1315,7 @@ function openAddDeviceModal() {
   openModal('modal-add-device');
 }
 
-function addDevice() {
+async function addDevice() {
   const name = document.getElementById('new-device-name').value.trim();
   if (!name) { showToast('機器名を入力してください', 'error'); return; }
   const device = {
@@ -1270,10 +1328,13 @@ function addDevice() {
     troubles: []
   };
   appState.data.devices.push(device);
-  saveData();
-  closeModal('modal-add-device');
-  showToast(`「${name}」を追加しました`, 'success');
-  renderDeviceGrid();
+  showToast('保存中...', '');
+  try {
+    await saveData();
+    closeModal('modal-add-device');
+    showToast(`「${name}」を追加しました ✓`, 'success');
+    renderDeviceGrid();
+  } catch(e) { appState.data.devices.pop(); }
 }
 
 // ─────────────────────────────────────────
@@ -1288,7 +1349,7 @@ function openAddTroubleModal(deviceId) {
   openModal('modal-add-trouble');
 }
 
-function addTrouble() {
+async function addTrouble() {
   const symptom = document.getElementById('new-trouble-symptom').value.trim();
   if (!symptom) { showToast('症状を入力してください', 'error'); return; }
   const stepsRaw = document.getElementById('new-trouble-steps').value.trim();
@@ -1297,50 +1358,59 @@ function addTrouble() {
   const device = appState.data.devices.find(d => d.id === appState.editingTroubleDeviceId);
   if (!device) return;
 
-  device.troubles.push({
+  const newTrouble = {
     id: 't' + Date.now(),
     symptom,
     level: document.getElementById('new-trouble-level').value,
     steps,
     notes: document.getElementById('new-trouble-notes').value.trim()
-  });
+  };
+  device.troubles.push(newTrouble);
 
-  saveData();
-  closeModal('modal-add-trouble');
-  showToast('症状を追加しました', 'success');
-
-  // Refresh current view
-  if (document.getElementById('view-detail').classList.contains('active')) {
-    showDetail(appState.editingTroubleDeviceId);
-  } else if (document.getElementById('view-edit').classList.contains('active')) {
-    renderEditView();
-  }
+  showToast('保存中...', '');
+  try {
+    await saveData();
+    closeModal('modal-add-trouble');
+    showToast('症状を追加しました ✓', 'success');
+    if (document.getElementById('view-detail').classList.contains('active')) {
+      showDetail(appState.editingTroubleDeviceId);
+    } else if (document.getElementById('view-edit').classList.contains('active')) {
+      renderEditView();
+    }
+  } catch(e) { device.troubles.pop(); }
 }
 
 // ─────────────────────────────────────────
 // DELETE
 // ─────────────────────────────────────────
-function deleteDevice(deviceId) {
+async function deleteDevice(deviceId) {
   if (!confirm('この機器とすべての症状を削除しますか？')) return;
+  const prev = appState.data.devices;
   appState.data.devices = appState.data.devices.filter(d => d.id !== deviceId);
-  saveData();
-  showToast('機器を削除しました');
-  showList();
+  showToast('保存中...', '');
+  try {
+    await saveData();
+    showToast('機器を削除しました');
+    showList();
+  } catch(e) { appState.data.devices = prev; }
 }
 
-function deleteTrouble(deviceId, troubleId) {
+async function deleteTrouble(deviceId, troubleId) {
   if (!confirm('この症状を削除しますか？')) return;
   const device = appState.data.devices.find(d => d.id === deviceId);
   if (!device) return;
+  const prev = device.troubles;
   device.troubles = device.troubles.filter(t => t.id !== troubleId);
-  saveData();
-  showToast('症状を削除しました');
-
-  if (document.getElementById('view-detail').classList.contains('active')) {
-    showDetail(deviceId);
-  } else if (document.getElementById('view-edit').classList.contains('active')) {
-    renderEditView();
-  }
+  showToast('保存中...', '');
+  try {
+    await saveData();
+    showToast('症状を削除しました');
+    if (document.getElementById('view-detail').classList.contains('active')) {
+      showDetail(deviceId);
+    } else if (document.getElementById('view-edit').classList.contains('active')) {
+      renderEditView();
+    }
+  } catch(e) { device.troubles = prev; }
 }
 
 // ─────────────────────────────────────────
