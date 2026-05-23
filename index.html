@@ -620,29 +620,21 @@
 </head>
 <body>
 
-<!-- ───────────────────────────── AUTH ───────────────────────────── -->
-<div id="auth-screen" class="screen active">
-  <div class="auth-logo">119</div>
-  <p class="auth-subtitle">家電・機器トラブル対応マニュアル</p>
-  <div class="auth-box">
-    <h2>ACCESS REQUIRED</h2>
-    <div class="url-hint">
-      URLにパスワードとトークンを含めてアクセス：<br>
-      閲覧: <code>?pw=パスワード&amp;token=トークン</code><br>
-      編集: <code>?pw=パスワード&amp;token=トークン&amp;edit=1</code><br>
-      <span style="color:#666;">※一度アクセスするとトークンはブラウザに保存されます</span>
+<!-- ───────────────────────────── ERROR ───────────────────────────── -->
+<div id="error-screen" style="display:none; position:fixed; inset:0; z-index:999; background:var(--black); flex-direction:column; align-items:center; justify-content:center; padding:40px 20px;">
+  <div style="font-family:'Bebas Neue',sans-serif; font-size:120px; color:var(--red); line-height:1; text-shadow:0 0 60px var(--red-glow);">119</div>
+  <p style="color:var(--gray); letter-spacing:3px; margin:8px 0 32px; font-size:14px;">家電・機器トラブル対応マニュアル</p>
+  <div style="background:var(--dark2); border:1px solid var(--dark3); border-top:3px solid var(--red); border-radius:4px; padding:28px 32px; max-width:420px; width:100%;">
+    <p id="error-message" style="color:var(--red); font-size:14px; line-height:1.8; text-align:center;"></p>
+    <div style="margin-top:20px; background:var(--dark3); border-radius:3px; padding:12px 14px; font-size:12px; color:var(--gray); line-height:1.8;">
+      閲覧: <code style="color:var(--gold);">?pw=パスワード&amp;token=トークン</code><br>
+      編集: <code style="color:var(--gold);">?pw=パスワード&amp;token=トークン&amp;edit=1</code>
     </div>
-    <div class="input-group">
-      <label>パスワード</label>
-      <input type="password" id="pw-input" placeholder="パスワードを入力">
-    </div>
-    <button class="btn-primary" onclick="authLogin()">▶ アクセス</button>
-    <p class="auth-error" id="auth-error"></p>
   </div>
 </div>
 
 <!-- ───────────────────────────── MAIN ───────────────────────────── -->
-<div id="main-screen" class="screen">
+<div id="main-screen" style="display:none; position:relative; z-index:1; min-height:100vh; padding-bottom:80px;">
 
   <div class="top-bar">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -792,10 +784,10 @@ let appState = {
 const GIST_ID   = '3ca3f94444331a446f09f3cf23e31e4f';
 const GIST_FILE = 'ie119_data.json';
 const PW_KEY    = 'ie119_pw';
-let   GIST_TOKEN = '';  // URLの ?token= から取得
+let   GIST_TOKEN = '';
 
 // ─────────────────────────────────────────
-// INIT
+// INIT — URLパラメータのみで認証
 // ─────────────────────────────────────────
 window.addEventListener('load', () => {
   const params  = new URLSearchParams(location.search);
@@ -803,7 +795,6 @@ window.addEventListener('load', () => {
   const urlEdit = params.get('edit') === '1';
   const urlTok  = params.get('token');
 
-  // トークンはURLから取得。なければlocalStorageのキャッシュを使う
   if (urlTok) {
     GIST_TOKEN = urlTok;
     localStorage.setItem('ie119_token', urlTok);
@@ -811,48 +802,31 @@ window.addEventListener('load', () => {
     GIST_TOKEN = localStorage.getItem('ie119_token') || '';
   }
 
-  if (urlPw) {
-    const stored = getStoredPw();
-    if (urlPw === stored) {
-      startLogin(urlEdit);
-    } else {
-      showScreen('auth-screen');
-      document.getElementById('auth-error').textContent = 'URLのパスワードが正しくありません';
-    }
-  } else {
-    showScreen('auth-screen');
-  }
-});
-
-function getStoredPw() {
-  return localStorage.getItem(PW_KEY) || '1234';
-}
-
-// ─────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────
-function authLogin() {
-  const pw = document.getElementById('pw-input').value;
-  if (pw === getStoredPw()) {
-    startLogin(true);
-  } else {
-    document.getElementById('auth-error').textContent = 'パスワードが正しくありません';
-    document.getElementById('pw-input').value = '';
-  }
-}
-
-document.getElementById('pw-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') authLogin();
-});
-
-async function startLogin(canEdit) {
-  if (!GIST_TOKEN) {
-    document.getElementById('auth-error').textContent = 'URLに &token=トークン を追加してください';
-    showScreen('auth-screen');
+  if (!urlPw) {
+    showError('URLに ?pw=パスワード を指定してください');
     return;
   }
+  if (!GIST_TOKEN) {
+    showError('URLに &token=トークン を指定してください');
+    return;
+  }
+  const stored = localStorage.getItem(PW_KEY) || '1234';
+  if (urlPw !== stored) {
+    showError('パスワードが正しくありません');
+    return;
+  }
+
+  startApp(urlEdit);
+});
+
+function showError(msg) {
+  document.getElementById('error-message').textContent = msg;
+  document.getElementById('error-screen').style.display = 'flex';
+}
+
+async function startApp(canEdit) {
   appState.canEdit = canEdit;
-  showScreen('main-screen');
+  document.getElementById('main-screen').style.display = 'block';
   setupMainUI();
   showView('view-list');
   document.getElementById('device-grid').innerHTML =
@@ -862,12 +836,12 @@ async function startLogin(canEdit) {
   renderDeviceGrid();
 }
 
+function getStoredPw() {
+  return localStorage.getItem(PW_KEY) || '1234';
+}
+
 function logout() {
-  appState.authed = false;
-  appState.canEdit = false;
-  showScreen('auth-screen');
-  document.getElementById('pw-input').value = '';
-  document.getElementById('auth-error').textContent = '';
+  location.href = location.pathname;
 }
 
 // ─────────────────────────────────────────
@@ -1006,10 +980,6 @@ function getDefaultData() {
 // ─────────────────────────────────────────
 // SCREENS & UI
 // ─────────────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
 
 function showView(id) {
   document.querySelectorAll('#main-screen [id^="view-"]').forEach(v => {
