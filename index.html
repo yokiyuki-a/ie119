@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家電・機器トラブル 119番</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E8002D;
+    --red-dark: #A80020;
+    --red-glow: rgba(232,0,45,0.3);
+    --black: #0A0A0A;
+    --dark: #111111;
+    --dark2: #1A1A1A;
+    --dark3: #242424;
+    --white: #F5F0EB;
+    --gray: #888;
+    --gold: #FFB800;
+    --green: #00C853;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── BACKGROUND ─── */
+  body::before {
+    content:'';
+    position:fixed; inset:0; z-index:0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 40px,
+        rgba(255,255,255,0.015) 40px,
+        rgba(255,255,255,0.015) 41px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 40px,
+        rgba(255,255,255,0.015) 40px,
+        rgba(255,255,255,0.015) 41px
+      );
+    pointer-events:none;
+  }
+
+  /* ─── SCREENS ─── */
+  .screen { display:none; position:relative; z-index:1; min-height:100vh; }
+  .screen.active { display:block; }
+
+  /* ─── AUTH SCREEN ─── */
+  #auth-screen {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+  }
+  #auth-screen.active { display:flex; }
+
+  .auth-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 20vw, 160px);
+    color: var(--red);
+    line-height: 0.9;
+    text-align: center;
+    text-shadow: 0 0 60px var(--red-glow), 0 0 120px var(--red-glow);
+    animation: pulse 2s ease-in-out infinite;
+    letter-spacing: 2px;
+  }
+  @keyframes pulse {
+    0%,100% { text-shadow: 0 0 60px var(--red-glow), 0 0 120px var(--red-glow); }
+    50% { text-shadow: 0 0 80px rgba(232,0,45,0.6), 0 0 160px rgba(232,0,45,0.4); }
+  }
+
+  .auth-subtitle {
+    font-size: 16px;
+    color: var(--gray);
+    margin: 8px 0 48px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .auth-box {
+    background: var(--dark2);
+    border: 1px solid var(--dark3);
+    border-top: 3px solid var(--red);
+    border-radius: 4px;
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  }
+
+  .auth-box h2 {
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--gray);
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .url-hint {
+    background: var(--dark3);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--gray);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .url-hint code {
+    color: var(--gold);
+    font-family: monospace;
+    font-size: 11px;
+  }
+
+  .input-group { margin-bottom: 16px; }
+  .input-group label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gray);
+    margin-bottom: 8px;
+  }
+  .input-group input {
+    width: 100%;
+    background: var(--black);
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 12px 16px;
+    color: var(--white);
+    font-size: 16px;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .input-group input:focus { border-color: var(--red); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: background .2s, transform .1s;
+    margin-top: 8px;
+  }
+  .btn-primary:hover { background: var(--red-dark); }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .auth-error {
+    color: var(--red);
+    font-size: 13px;
+    text-align: center;
+    margin-top: 14px;
+    min-height: 20px;
+  }
+
+  /* ─── MAIN SCREEN ─── */
+  #main-screen { padding-bottom: 80px; }
+
+  .top-bar {
+    background: var(--dark);
+    border-bottom: 2px solid var(--red);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(232,0,45,0.15);
+  }
+
+  .top-bar-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--red);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px var(--red-glow);
+  }
+  .top-bar-title {
+    font-size: 13px;
+    color: var(--gray);
+    letter-spacing: 2px;
+    display: none;
+  }
+  @media(min-width:500px){ .top-bar-title { display:block; } }
+
+  .top-bar-actions { display:flex; gap:8px; align-items:center; }
+
+  .btn-icon {
+    background: var(--dark3);
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 8px 14px;
+    color: var(--white);
+    font-size: 12px;
+    font-family: 'Noto Sans Jo', sans-serif;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: 1px;
+  }
+  .btn-icon:hover { background: #333; border-color: #555; }
+  .btn-icon.danger { border-color: var(--red); color: var(--red); }
+  .btn-icon.danger:hover { background: var(--red); color: white; }
+  .btn-icon.success { border-color: var(--green); color: var(--green); }
+  .btn-icon.success:hover { background: var(--green); color: black; }
+
+  /* ─── CONTENT ─── */
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+
+  /* ─── CATEGORY GRID ─── */
+  #view-list { }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .section-title {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--gray);
+    text-transform: uppercase;
+  }
+
+  .device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .device-card {
+    background: var(--dark2);
+    border: 1px solid var(--dark3);
+    border-left: 3px solid var(--red);
+    border-radius: 4px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .device-card::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    background: linear-gradient(135deg, rgba(232,0,45,0.03) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .device-card:hover { border-left-color: var(--gold); transform: translateX(2px); box-shadow: -4px 0 20px rgba(232,0,45,0.2); }
+  .device-card:hover::before { opacity: 1; }
+
+  .device-card-icon { font-size: 28px; margin-bottom: 10px; }
+  .device-card-name {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .device-card-count {
+    font-size: 12px;
+    color: var(--gray);
+  }
+  .device-card-count span {
+    color: var(--red);
+    font-weight: 700;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--gray);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-size: 14px; line-height: 1.8; }
+
+  /* ─── DETAIL VIEW ─── */
+  #view-detail { display: none; }
+  #view-detail.active { display: block; }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--gray);
+    margin-bottom: 28px;
+  }
+  .breadcrumb a { color: var(--red); cursor: pointer; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .device-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    gap: 16px;
+  }
+  .device-header-left { display: flex; align-items: center; gap: 16px; }
+  .device-header-icon { font-size: 48px; }
+  .device-header-name { font-size: 28px; font-weight: 900; }
+  .device-header-meta { font-size: 13px; color: var(--gray); margin-top: 4px; }
+
+  .trouble-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .trouble-item {
+    background: var(--dark2);
+    border: 1px solid var(--dark3);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .trouble-item:hover { border-color: #444; }
+
+  .trouble-header {
+    padding: 18px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .trouble-header:hover { background: rgba(255,255,255,0.02); }
+
+  .trouble-symptom {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .trouble-badge {
+    background: var(--red);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .trouble-badge.warn { background: var(--gold); color: black; }
+  .trouble-badge.ok { background: var(--green); color: black; }
+
+  .trouble-chevron {
+    color: var(--gray);
+    font-size: 18px;
+    transition: transform .2s;
+    flex-shrink: 0;
+  }
+  .trouble-item.open .trouble-chevron { transform: rotate(90deg); }
+
+  .trouble-body {
+    display: none;
+    border-top: 1px solid var(--dark3);
+    padding: 20px;
+  }
+  .trouble-item.open .trouble-body { display: block; }
+
+  .steps-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--gray);
+    margin-bottom: 16px;
+  }
+
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    background: var(--red);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--white);
+    flex: 1;
+  }
+
+  .info-block {
+    background: var(--dark3);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 3px 3px 0;
+    padding: 14px 16px;
+    margin-top: 16px;
+  }
+  .info-block-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .info-block-content {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #ccc;
+    white-space: pre-wrap;
+  }
+
+  .contact-block {
+    background: rgba(232,0,45,0.08);
+    border: 1px solid rgba(232,0,45,0.3);
+    border-radius: 3px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .contact-block-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+  .contact-block-content {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #ccc;
+    white-space: pre-wrap;
+  }
+
+  /* ─── EDIT VIEW ─── */
+  #view-edit { display: none; }
+  #view-edit.active { display: block; }
+
+  .edit-form { display: flex; flex-direction: column; gap: 20px; }
+
+  .form-group label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gray);
+    margin-bottom: 8px;
+  }
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    background: var(--dark2);
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 12px 16px;
+    color: var(--white);
+    font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+    transition: border-color .2s;
+    resize: vertical;
+  }
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus { border-color: var(--red); }
+  .form-group textarea { min-height: 80px; }
+  .form-group select option { background: var(--dark2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:500px){ .form-row { grid-template-columns: 1fr; } }
+
+  .device-edit-card {
+    background: var(--dark2);
+    border: 1px solid var(--dark3);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .device-edit-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .device-edit-card-title { font-size: 16px; font-weight: 700; }
+
+  .trouble-edit-item {
+    background: var(--dark3);
+    border-radius: 3px;
+    padding: 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid #333;
+  }
+  .trouble-edit-item.level-high { border-left-color: var(--red); }
+  .trouble-edit-item.level-med  { border-left-color: var(--gold); }
+  .trouble-edit-item.level-low  { border-left-color: var(--green); }
+
+  .trouble-edit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .btn-sm {
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 5px 12px;
+    color: var(--gray);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-sm:hover { background: #333; color: var(--white); }
+  .btn-sm.danger { border-color: var(--red); color: var(--red); }
+  .btn-sm.danger:hover { background: var(--red); color: white; }
+  .btn-sm.add { border-color: var(--green); color: var(--green); }
+  .btn-sm.add:hover { background: var(--green); color: black; }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 1px solid var(--dark3);
+  }
+
+  /* ─── TOAST ─── */
+  #toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--dark3);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--white);
+    opacity: 0;
+    transition: all .3s;
+    z-index: 999;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--dark2);
+    border: 1px solid var(--dark3);
+    border-top: 3px solid var(--red);
+    border-radius: 4px;
+    padding: 32px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+  }
+  .modal h3 {
+    font-size: 18px;
+    font-weight: 900;
+    margin-bottom: 24px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  .readonly-badge {
+    background: var(--dark3);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--gray);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────── AUTH ───────────────────────────── -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-logo">119</div>
+  <p class="auth-subtitle">家電・機器トラブル対応マニュアル</p>
+  <div class="auth-box">
+    <h2>ACCESS REQUIRED</h2>
+    <div class="url-hint">
+      URLにパスワードを含めてアクセス可能：<br>
+      <code>index.html?pw=パスワード</code><br>
+      編集権限: <code>index.html?pw=パスワード&edit=1</code>
+    </div>
+    <div class="input-group">
+      <label>パスワード</label>
+      <input type="password" id="pw-input" placeholder="パスワードを入力">
+    </div>
+    <button class="btn-primary" onclick="authLogin()">▶ アクセス</button>
+    <p class="auth-error" id="auth-error"></p>
+  </div>
+</div>
+
+<!-- ───────────────────────────── MAIN ───────────────────────────── -->
+<div id="main-screen" class="screen">
+
+  <div class="top-bar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="top-bar-logo">119</div>
+      <div class="top-bar-title">家電・機器トラブル</div>
+    </div>
+    <div class="top-bar-actions">
+      <span id="readonly-badge" class="readonly-badge" style="display:none;">閲覧のみ</span>
+      <button class="btn-icon" id="btn-edit-mode" onclick="goEditMode()" style="display:none;">＋ 編集</button>
+      <button class="btn-icon danger" onclick="logout()">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- LIST VIEW -->
+    <div id="view-list">
+      <div class="section-header">
+        <div class="section-title">登録済み機器</div>
+        <button class="btn-icon success" id="btn-add-device" onclick="openAddDeviceModal()" style="display:none;">＋ 機器を追加</button>
+      </div>
+      <div class="device-grid" id="device-grid"></div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div id="view-detail">
+      <div class="breadcrumb">
+        <a onclick="showList()">🏠 ホーム</a>
+        <span>›</span>
+        <span id="detail-breadcrumb"></span>
+      </div>
+      <div class="device-header">
+        <div class="device-header-left">
+          <div class="device-header-icon" id="detail-icon"></div>
+          <div>
+            <div class="device-header-name" id="detail-name"></div>
+            <div class="device-header-meta" id="detail-meta"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;" id="detail-edit-actions"></div>
+      </div>
+      <div class="trouble-list" id="trouble-list"></div>
+    </div>
+
+    <!-- EDIT VIEW -->
+    <div id="view-edit">
+      <div class="breadcrumb">
+        <a onclick="showList()">🏠 ホーム</a>
+        <span>›</span>
+        <span>編集モード</span>
+      </div>
+      <div id="edit-content"></div>
+      <div class="form-actions" id="edit-form-actions" style="margin-top:20px;">
+        <button class="btn-primary" style="width:auto;padding:12px 32px;" onclick="saveAll()">💾 保存</button>
+        <button class="btn-icon" onclick="showList()">キャンセル</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ───────────────────────────── MODALS ───────────────────────────── -->
+
+<!-- Add Device Modal -->
+<div class="modal-overlay" id="modal-add-device">
+  <div class="modal">
+    <h3>機器を追加</h3>
+    <div class="edit-form">
+      <div class="form-group">
+        <label>アイコン（絵文字）</label>
+        <input type="text" id="new-device-icon" placeholder="例: ❄️ 🖥️ 🚿" value="🔧" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>機器名</label>
+        <input type="text" id="new-device-name" placeholder="例: エアコン、Wi-Fiルーター">
+      </div>
+      <div class="form-group">
+        <label>メーカー・型番</label>
+        <input type="text" id="new-device-model" placeholder="例: ダイキン MSZ-XD285S">
+      </div>
+      <div class="form-group">
+        <label>設置場所</label>
+        <input type="text" id="new-device-location" placeholder="例: リビング、2階洋室">
+      </div>
+      <div class="form-group">
+        <label>サポート・連絡先情報</label>
+        <textarea id="new-device-contact" placeholder="例:&#10;メーカーサポート: 0120-XXX-XXXX&#10;受付時間: 平日9-17時&#10;保証書: 引き出し1段目" rows="4"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-icon danger" onclick="closeModal('modal-add-device')">キャンセル</button>
+      <button class="btn-primary" style="width:auto;padding:12px 28px;" onclick="addDevice()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Trouble Modal -->
+<div class="modal-overlay" id="modal-add-trouble">
+  <div class="modal">
+    <h3>トラブル症状を追加</h3>
+    <div class="edit-form">
+      <div class="form-group">
+        <label>症状・エラー内容</label>
+        <input type="text" id="new-trouble-symptom" placeholder="例: ランプ点滅、エラーコードE3">
+      </div>
+      <div class="form-group">
+        <label>緊急度</label>
+        <select id="new-trouble-level">
+          <option value="high">🔴 高（すぐ対応）</option>
+          <option value="med" selected>🟡 中（様子見OK）</option>
+          <option value="low">🟢 低（時間があるとき）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>対応手順（1行1ステップ）</label>
+        <textarea id="new-trouble-steps" placeholder="例:&#10;コンセントを抜いて5分待つ&#10;再度コンセントを挿して電源ON&#10;改善しなければサポートへ連絡" rows="5"></textarea>
+      </div>
+      <div class="form-group">
+        <label>補足メモ</label>
+        <textarea id="new-trouble-notes" placeholder="例: 夏場は多め。購入日2023年4月" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-icon danger" onclick="closeModal('modal-add-trouble')">キャンセル</button>
+      <button class="btn-primary" style="width:auto;padding:12px 28px;" onclick="addTrouble()">追加</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+let appState = {
+  authed: false,
+  canEdit: false,
+  currentDeviceId: null,
+  editingTroubleDeviceId: null,
+  data: { devices: [] }
+};
+
+const STORAGE_KEY = 'ie119_data';
+const PW_KEY = 'ie119_pw';
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(location.search);
+  const urlPw = params.get('pw');
+  const urlEdit = params.get('edit') === '1';
+
+  loadData();
+
+  if (urlPw) {
+    const stored = localStorage.getItem(PW_KEY) || getDefaultPw();
+    if (urlPw === stored) {
+      login(urlEdit);
+    } else {
+      showScreen('auth-screen');
+      document.getElementById('auth-error').textContent = 'URLのパスワードが正しくありません';
+    }
+  } else {
+    showScreen('auth-screen');
+  }
+});
+
+function getDefaultPw() {
+  // デフォルトパスワードが未設定の場合の初期値
+  return localStorage.getItem(PW_KEY) || '1234';
+}
+
+// ─────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────
+function authLogin() {
+  const pw = document.getElementById('pw-input').value;
+  const stored = getDefaultPw();
+  if (pw === stored) {
+    // 編集モードはデフォルトでオン（フォームからのログインは編集可）
+    login(true);
+  } else {
+    document.getElementById('auth-error').textContent = 'パスワードが正しくありません';
+    document.getElementById('pw-input').value = '';
+  }
+}
+
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') authLogin();
+});
+
+function login(canEdit) {
+  appState.authed = true;
+  appState.canEdit = canEdit;
+  showScreen('main-screen');
+  setupMainUI();
+  renderDeviceGrid();
+  showList();
+}
+
+function logout() {
+  appState.authed = false;
+  appState.canEdit = false;
+  showScreen('auth-screen');
+  document.getElementById('pw-input').value = '';
+  document.getElementById('auth-error').textContent = '';
+}
+
+// ─────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { appState.data = JSON.parse(raw); } catch(e) {}
+  }
+  if (!appState.data.devices || !appState.data.devices.length) {
+    appState.data = getDefaultData();
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
+}
+
+function getDefaultData() {
+  return {
+    devices: [
+      {
+        id: 'd1',
+        icon: '❄️',
+        name: 'エアコン',
+        model: 'ダイキン F40VTFXS-W',
+        location: 'リビング',
+        contact: 'ダイキン サポートセンター: 0120-881-104\n受付: 月〜土 9:00〜18:00\n保証書: リビングの棚 引き出し1段目',
+        troubles: [
+          {
+            id: 't1',
+            symptom: 'ランプが点滅して止まる',
+            level: 'high',
+            steps: ['電源をOFFにしてコンセントを抜く', '5〜10分そのまま待つ', 'コンセントを挿し直して電源ON', 'まだ点滅するならサポートへ電話'],
+            notes: '夏場の過負荷でなることが多い。まずリセットを試す。'
+          },
+          {
+            id: 't2',
+            symptom: '冷えない・暖まらない',
+            level: 'med',
+            steps: ['フィルターを取り出して掃除機で埃を吸う', '室外機の周りに物が置かれていないか確認', 'それでも改善しなければ冷媒ガス不足の可能性→業者へ'],
+            notes: 'フィルターは月1回掃除が目安。室外機は半径50cm以上あけること。'
+          }
+        ]
+      },
+      {
+        id: 'd2',
+        icon: '📡',
+        name: 'Wi-Fiルーター',
+        model: 'NEC Aterm WX3000HP',
+        location: 'リビング テレビ台横',
+        contact: 'NEC プラットフォームズ: 03-3455-5800\nISP（プロバイダ）のサポートに電話する方が早い場合あり',
+        troubles: [
+          {
+            id: 't3',
+            symptom: 'インターネットに繋がらない',
+            level: 'high',
+            steps: ['ルーターとモデムの電源を両方抜く', '30秒待ってからモデム→ルーターの順に電源を入れる', '2〜3分待ってから接続確認', 'それでもダメならプロバイダのサポートへ'],
+            notes: '再起動で8割は解決する。順番（モデム先）が大事。'
+          },
+          {
+            id: 't4',
+            symptom: 'スマホだけ繋がらない（PCはOK）',
+            level: 'low',
+            steps: ['スマホのWi-Fiをオフ→10秒後にオン', 'それでもダメなら対象のWi-Fiを「削除」してパスワードを再入力', 'パスワードはルーター本体の裏面に記載'],
+            notes: ''
+          }
+        ]
+      },
+      {
+        id: 'd3',
+        icon: '🚿',
+        name: '給湯器',
+        model: 'ノーリツ GT-2060SAWX',
+        location: '玄関横 屋外',
+        contact: 'ノーリツ お客様センター: 0120-13-8774\n受付: 24時間365日\n購入・工事: ○○設備工業 TEL: 000-0000-0000',
+        troubles: [
+          {
+            id: 't5',
+            symptom: 'エラーコード 111 が出る',
+            level: 'high',
+            steps: ['点火不良エラー。まずリモコンのリセットボタンを押す', 'ガスの元栓が開いているか確認（他のガス機器で確認）', 'ガスが来ているのに直らない→ノーリツサポートへ即電話'],
+            notes: '冬の朝は凍結でなることもある。ガス会社に連絡が必要な場合は東京ガス: 0570-002211'
+          },
+          {
+            id: 't6',
+            symptom: 'お湯が出ない（エラーなし）',
+            level: 'high',
+            steps: ['給湯器の電源が入っているか確認', 'お湯の設定温度が低すぎないか確認（40℃以上に設定）', 'フィルター（給水側）の詰まりを確認→取り外して水洗い', '改善しなければ業者へ連絡'],
+            notes: ''
+          }
+        ]
+      }
+    ]
+  };
+}
+
+// ─────────────────────────────────────────
+// SCREENS & UI
+// ─────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showView(id) {
+  document.querySelectorAll('#main-screen [id^="view-"]').forEach(v => {
+    v.classList.remove('active');
+    v.style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.classList.add('active');
+}
+
+function setupMainUI() {
+  document.getElementById('btn-edit-mode').style.display = appState.canEdit ? 'block' : 'none';
+  document.getElementById('btn-add-device').style.display = appState.canEdit ? 'block' : 'none';
+  document.getElementById('readonly-badge').style.display = appState.canEdit ? 'none' : 'inline';
+}
+
+// ─────────────────────────────────────────
+// LIST VIEW
+// ─────────────────────────────────────────
+function showList() {
+  showView('view-list');
+  renderDeviceGrid();
+}
+
+function renderDeviceGrid() {
+  const grid = document.getElementById('device-grid');
+  const devices = appState.data.devices;
+
+  if (!devices.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-icon">🔧</div>
+      <p>まだ機器が登録されていません。<br>「＋ 機器を追加」から登録しましょう。</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = devices.map(d => `
+    <div class="device-card" onclick="showDetail('${d.id}')">
+      <div class="device-card-icon">${d.icon}</div>
+      <div class="device-card-name">${esc(d.name)}</div>
+      <div class="device-card-count"><span>${d.troubles.length}</span> 件の症状登録済み</div>
+      ${d.location ? `<div style="font-size:12px;color:var(--gray);margin-top:4px;">📍 ${esc(d.location)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ─────────────────────────────────────────
+// DETAIL VIEW
+// ─────────────────────────────────────────
+function showDetail(deviceId) {
+  const device = appState.data.devices.find(d => d.id === deviceId);
+  if (!device) return;
+  appState.currentDeviceId = deviceId;
+
+  document.getElementById('detail-breadcrumb').textContent = device.name;
+  document.getElementById('detail-icon').textContent = device.icon;
+  document.getElementById('detail-name').textContent = device.name;
+  document.getElementById('detail-meta').textContent =
+    [device.model, device.location].filter(Boolean).join(' ／ ');
+
+  // Edit actions
+  const editActions = document.getElementById('detail-edit-actions');
+  editActions.innerHTML = appState.canEdit ? `
+    <button class="btn-icon" onclick="openAddTroubleModal('${deviceId}')">＋ 症状追加</button>
+    <button class="btn-icon danger" onclick="deleteDevice('${deviceId}')">機器を削除</button>
+  ` : '';
+
+  // Troubles
+  const list = document.getElementById('trouble-list');
+  if (!device.troubles.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">✅</div>
+      <p>症状が登録されていません。</p>
+    </div>`;
+  } else {
+    list.innerHTML = device.troubles.map(t => {
+      const badgeClass = t.level === 'high' ? '' : t.level === 'med' ? 'warn' : 'ok';
+      const badgeText = t.level === 'high' ? '緊急' : t.level === 'med' ? '要確認' : '低優先';
+      const stepsHtml = t.steps.map((s,i) => `
+        <div class="step">
+          <div class="step-num">${i+1}</div>
+          <div class="step-text">${esc(s)}</div>
+        </div>
+      `).join('');
+
+      const notesHtml = t.notes ? `
+        <div class="info-block">
+          <div class="info-block-title">📝 補足メモ</div>
+          <div class="info-block-content">${esc(t.notes)}</div>
+        </div>
+      ` : '';
+
+      const contactHtml = device.contact ? `
+        <div class="contact-block">
+          <div class="contact-block-title">📞 サポート・連絡先</div>
+          <div class="contact-block-content">${esc(device.contact)}</div>
+        </div>
+      ` : '';
+
+      const deleteBtn = appState.canEdit ? `
+        <button class="btn-sm danger" onclick="event.stopPropagation();deleteTrouble('${deviceId}','${t.id}')">削除</button>
+      ` : '';
+
+      return `
+        <div class="trouble-item" id="ti-${t.id}">
+          <div class="trouble-header" onclick="toggleTrouble('${t.id}')">
+            <div class="trouble-symptom">
+              <span class="trouble-badge ${badgeClass}">${badgeText}</span>
+              ${esc(t.symptom)}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${deleteBtn}
+              <div class="trouble-chevron">›</div>
+            </div>
+          </div>
+          <div class="trouble-body">
+            <div class="steps-title">STEP BY STEP</div>
+            <div class="steps">${stepsHtml}</div>
+            ${notesHtml}
+            ${contactHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  showView('view-detail');
+}
+
+function toggleTrouble(id) {
+  const el = document.getElementById('ti-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+// ─────────────────────────────────────────
+// EDIT MODE
+// ─────────────────────────────────────────
+function goEditMode() {
+  if (!appState.canEdit) return;
+  showView('view-edit');
+  renderEditView();
+}
+
+function renderEditView() {
+  const content = document.getElementById('edit-content');
+  const devices = appState.data.devices;
+
+  // Password change section
+  let html = `
+    <div style="margin-bottom:32px;">
+      <div class="section-header">
+        <div class="section-title">パスワード変更</div>
+      </div>
+      <div class="device-edit-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label>新しいパスワード</label>
+            <input type="text" id="edit-new-pw" placeholder="新しいパスワード">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn-icon success" onclick="changePassword()">パスワード変更</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--gray);margin-top:8px;">変更後はURLを更新してください: <code style="color:var(--gold);">?pw=新パスワード</code></p>
+      </div>
+    </div>
+  `;
+
+  html += `
+    <div class="section-header">
+      <div class="section-title">機器データ編集</div>
+    </div>
+  `;
+
+  devices.forEach(d => {
+    html += `
+      <div class="device-edit-card" id="devc-${d.id}">
+        <div class="device-edit-card-header">
+          <div class="device-edit-card-title">${d.icon} ${esc(d.name)}</div>
+          <button class="btn-sm danger" onclick="deleteDevice('${d.id}')">機器を削除</button>
+        </div>
+        <div class="edit-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>アイコン</label>
+              <input type="text" id="e-icon-${d.id}" value="${esc(d.icon)}" maxlength="4">
+            </div>
+            <div class="form-group">
+              <label>機器名</label>
+              <input type="text" id="e-name-${d.id}" value="${esc(d.name)}">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>メーカー・型番</label>
+              <input type="text" id="e-model-${d.id}" value="${esc(d.model||'')}">
+            </div>
+            <div class="form-group">
+              <label>設置場所</label>
+              <input type="text" id="e-location-${d.id}" value="${esc(d.location||'')}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>サポート・連絡先</label>
+            <textarea id="e-contact-${d.id}" rows="3">${esc(d.contact||'')}</textarea>
+          </div>
+
+          <div style="margin-top:8px;">
+            <div style="font-size:11px;letter-spacing:2px;color:var(--gray);margin-bottom:10px;">登録済み症状</div>
+            <div id="troubles-${d.id}">
+    `;
+
+    d.troubles.forEach(t => {
+      const lvlClass = t.level === 'high' ? 'level-high' : t.level === 'med' ? 'level-med' : 'level-low';
+      html += `
+        <div class="trouble-edit-item ${lvlClass}" id="tedit-${t.id}">
+          <div class="trouble-edit-header">
+            <div style="font-size:14px;font-weight:700;">${esc(t.symptom)}</div>
+            <button class="btn-sm danger" onclick="deleteTrouble('${d.id}','${t.id}')">削除</button>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>症状</label>
+            <input type="text" id="et-sym-${t.id}" value="${esc(t.symptom)}">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>緊急度</label>
+            <select id="et-lvl-${t.id}">
+              <option value="high" ${t.level==='high'?'selected':''}>🔴 高</option>
+              <option value="med" ${t.level==='med'?'selected':''}>🟡 中</option>
+              <option value="low" ${t.level==='low'?'selected':''}>🟢 低</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>対応手順（1行1ステップ）</label>
+            <textarea id="et-steps-${t.id}" rows="4">${esc(t.steps.join('\n'))}</textarea>
+          </div>
+          <div class="form-group">
+            <label>補足メモ</label>
+            <textarea id="et-notes-${t.id}" rows="2">${esc(t.notes||'')}</textarea>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+            </div>
+            <button class="btn-sm add" style="margin-top:8px;" onclick="openAddTroubleModal('${d.id}')">＋ 症状を追加</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  content.innerHTML = html;
+}
+
+function saveAll() {
+  appState.data.devices.forEach(d => {
+    const getVal = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    d.icon = getVal(`e-icon-${d.id}`) || d.icon;
+    d.name = getVal(`e-name-${d.id}`) || d.name;
+    d.model = getVal(`e-model-${d.id}`);
+    d.location = getVal(`e-location-${d.id}`);
+    d.contact = getVal(`e-contact-${d.id}`);
+
+    d.troubles.forEach(t => {
+      t.symptom = getVal(`et-sym-${t.id}`) || t.symptom;
+      t.level = getVal(`et-lvl-${t.id}`) || t.level;
+      const stepsRaw = getVal(`et-steps-${t.id}`);
+      t.steps = stepsRaw ? stepsRaw.split('\n').map(s=>s.trim()).filter(Boolean) : t.steps;
+      t.notes = getVal(`et-notes-${t.id}`);
+    });
+  });
+
+  saveData();
+  showToast('保存しました', 'success');
+  showList();
+}
+
+function changePassword() {
+  const newPw = document.getElementById('edit-new-pw').value.trim();
+  if (!newPw) { showToast('パスワードを入力してください', 'error'); return; }
+  if (newPw.length < 4) { showToast('4文字以上にしてください', 'error'); return; }
+  localStorage.setItem(PW_KEY, newPw);
+  showToast(`パスワードを「${newPw}」に変更しました`, 'success');
+  document.getElementById('edit-new-pw').value = '';
+}
+
+// ─────────────────────────────────────────
+// ADD DEVICE
+// ─────────────────────────────────────────
+function openAddDeviceModal() {
+  document.getElementById('new-device-icon').value = '🔧';
+  document.getElementById('new-device-name').value = '';
+  document.getElementById('new-device-model').value = '';
+  document.getElementById('new-device-location').value = '';
+  document.getElementById('new-device-contact').value = '';
+  openModal('modal-add-device');
+}
+
+function addDevice() {
+  const name = document.getElementById('new-device-name').value.trim();
+  if (!name) { showToast('機器名を入力してください', 'error'); return; }
+  const device = {
+    id: 'd' + Date.now(),
+    icon: document.getElementById('new-device-icon').value.trim() || '🔧',
+    name,
+    model: document.getElementById('new-device-model').value.trim(),
+    location: document.getElementById('new-device-location').value.trim(),
+    contact: document.getElementById('new-device-contact').value.trim(),
+    troubles: []
+  };
+  appState.data.devices.push(device);
+  saveData();
+  closeModal('modal-add-device');
+  showToast(`「${name}」を追加しました`, 'success');
+  renderDeviceGrid();
+}
+
+// ─────────────────────────────────────────
+// ADD TROUBLE
+// ─────────────────────────────────────────
+function openAddTroubleModal(deviceId) {
+  appState.editingTroubleDeviceId = deviceId;
+  document.getElementById('new-trouble-symptom').value = '';
+  document.getElementById('new-trouble-level').value = 'med';
+  document.getElementById('new-trouble-steps').value = '';
+  document.getElementById('new-trouble-notes').value = '';
+  openModal('modal-add-trouble');
+}
+
+function addTrouble() {
+  const symptom = document.getElementById('new-trouble-symptom').value.trim();
+  if (!symptom) { showToast('症状を入力してください', 'error'); return; }
+  const stepsRaw = document.getElementById('new-trouble-steps').value.trim();
+  const steps = stepsRaw ? stepsRaw.split('\n').map(s=>s.trim()).filter(Boolean) : [];
+
+  const device = appState.data.devices.find(d => d.id === appState.editingTroubleDeviceId);
+  if (!device) return;
+
+  device.troubles.push({
+    id: 't' + Date.now(),
+    symptom,
+    level: document.getElementById('new-trouble-level').value,
+    steps,
+    notes: document.getElementById('new-trouble-notes').value.trim()
+  });
+
+  saveData();
+  closeModal('modal-add-trouble');
+  showToast('症状を追加しました', 'success');
+
+  // Refresh current view
+  if (document.getElementById('view-detail').classList.contains('active')) {
+    showDetail(appState.editingTroubleDeviceId);
+  } else if (document.getElementById('view-edit').classList.contains('active')) {
+    renderEditView();
+  }
+}
+
+// ─────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────
+function deleteDevice(deviceId) {
+  if (!confirm('この機器とすべての症状を削除しますか？')) return;
+  appState.data.devices = appState.data.devices.filter(d => d.id !== deviceId);
+  saveData();
+  showToast('機器を削除しました');
+  showList();
+}
+
+function deleteTrouble(deviceId, troubleId) {
+  if (!confirm('この症状を削除しますか？')) return;
+  const device = appState.data.devices.find(d => d.id === deviceId);
+  if (!device) return;
+  device.troubles = device.troubles.filter(t => t.id !== troubleId);
+  saveData();
+  showToast('症状を削除しました');
+
+  if (document.getElementById('view-detail').classList.contains('active')) {
+    showDetail(deviceId);
+  } else if (document.getElementById('view-edit').classList.contains('active')) {
+    renderEditView();
+  }
+}
+
+// ─────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.add('active');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// ─────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+// ─────────────────────────────────────────
+// UTIL
+// ─────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
