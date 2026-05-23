@@ -53,18 +53,17 @@
   }
 
   /* ─── SCREENS ─── */
-  .screen { display:none; position:relative; z-index:1; min-height:100vh; }
-  .screen.active { display:block; }
+  .screen { display:none !important; position:relative; z-index:1; min-height:100vh; }
+  .screen.active { display:block !important; }
+  #auth-screen.active { display:flex !important; }
 
   /* ─── AUTH SCREEN ─── */
   #auth-screen {
-    display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
     padding:40px 20px;
   }
-  #auth-screen.active { display:flex; }
 
   .auth-logo {
     font-family: 'Bebas Neue', sans-serif;
